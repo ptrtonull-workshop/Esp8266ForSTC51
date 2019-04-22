@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"main.obj",
+"DHT_T_RH.obj",
+"wifi_gramamer.obj" 
+TO "jiaquan" 
+RAMSIZE(256) 

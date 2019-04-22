@@ -1,0 +1,321 @@
+C51 COMPILER V9.06   MAIN                                                                  04/28/2014 09:07:59 PAGE 1   
+
+
+C51 COMPILER V9.06, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          //******************************说明********************************//
+   2          //MCU:STC12C5A60S2
+   3          //AD:P1.0
+   4          //SYSTEM CLOCK:11.0592MHz
+   5          //Baudrate:115200
+   6          //星辉科技电子提供，http://shop108071095.taobao.com/?spm=2013.1.0.0.HPgML5
+   7          //旺旺ID:anning86525
+   8          #include <STC12C5A60S2.h>
+   9          #include "stdio.h"
+  10          
+  11          #define false 0
+  12          #define true 1
+  13          #define FOSC 11059200L    //系统时钟
+  14          #define BAUD 115200       //波特率
+  15          #define T0MS (65536-FOSC/12/500)    //500HZ in 12T MODE
+  16          
+  17          #define ADC_POWER 0x80      //ADC POWER CONTROL BIT
+  18          #define ADC_FLAG 0x10     //ADC COMPLETE FLAG
+  19          #define ADC_START 0x08;     //ADC START CONTROL BIT
+  20          #define ADC_SPEEDLL 0x00    //540 CLOCKS
+  21          #define ADC_SPEEDL 0x20     //360 CLOCKS
+  22          #define ADC_SPEEDH 0x40     //180 CLOCKS
+  23          #define ADC_SPEEDHH 0x60    //90 CLOCKS
+  24          #define ADC_MASK 0x01
+  25          
+  26          //数码管段码显示：0~f,不亮
+  27          unsigned char code LED_Disp[] = {0xC0,0xF9,0xA4,0xB0,
+  28                                  0x99,0x92,0x82,0xF8,
+  29                      0x80,0x90,0x88,0x83,
+  30                      0xC6,0xA1,0x86,0x8E};
+  31          
+  32          sfr LedPort = 0x80;  //段选段P0
+  33          sfr LedCtrl = 0xa0;  //位选段P2
+  34          unsigned char DisBuff[3];
+  35          
+  36          void UART_init(void); 
+  37          void LED_Disp_Seg7(void);
+  38          void ADC_init(unsigned char channel);
+  39          void T0_init(void);
+  40          void sendDataToProcessing(char symbol, int dat);
+  41          void delay(unsigned int n);
+  42          void UART_send(char dat);
+  43          
+  44          unsigned char PulsePin = 0;       // Pulse Sensor purple wire connected to analog pin 0(P1.0为AD口)
+  45          sbit blinkPin = P2^0;                // pin to blink led at each beat
+  46          sbit fadePin = P2^3;                  // pin to do fancy classy fading blink at each beat
+  47          sbit led1 = P2^1;
+  48          sbit led2 = P2^2;
+  49          int fadeRate = 0;                 // used to fade LED on with PWM on fadePin
+  50          
+  51          
+  52          // these variables are volatile because they are used during the interrupt service routine!
+  53          volatile unsigned int BPM;                   // used to hold the pulse rate
+  54          volatile unsigned int Signal;                // holds the incoming raw data
+  55          volatile unsigned int IBI = 600;             // holds the time between beats, must be seeded! 
+C51 COMPILER V9.06   MAIN                                                                  04/28/2014 09:07:59 PAGE 2   
+
+  56          volatile bit Pulse = false;     // true when pulse wave is high, false when it's low
+  57          volatile bit QS = false;        // becomes true when Arduoino finds a beat.
+  58          volatile int rate[10];                    // array to hold last ten IBI values
+  59          volatile unsigned long sampleCounter = 0;          // used to determine pulse timing
+  60          volatile unsigned long lastBeatTime = 0;           // used to find IBI
+  61          volatile int Peak =512;                      // used to find peak in pulse wave, seeded
+  62          volatile int Trough = 512;                     // used to find trough in pulse wave, seeded
+  63          volatile int thresh = 512;                // used to find instant moment of heart beat, seeded
+  64          volatile int amp = 100;                   // used to hold amplitude of pulse waveform, seeded
+  65          volatile bit firstBeat = true;        // used to seed rate array so we startup with reasonable BPM
+  66          volatile bit secondBeat = false;      // used to seed rate array so we startup with reasonable BPM
+  67          static unsigned char order=0;
+  68          
+  69          void sys_init()
+  70          {
+  71   1        //pinMode(blinkPin,OUTPUT);         // pin that will blink to your heartbeat!
+  72   1        //pinMode(fadePin,OUTPUT);          // pin that will fade to your heartbeat!
+  73   1        UART_init();             // we agree to talk fast!
+  74   1        ADC_init(PulsePin);
+  75   1        T0_init();                 // sets up to read Pulse Sensor signal every 2mS  
+  76   1      }
+  77          
+  78          void main(void)
+  79          {
+  80   1        sys_init();
+  81   1        while(1)
+  82   1        {
+  83   2          sendDataToProcessing('S', Signal);     // send Processing the raw Pulse Sensor data
+  84   2          if (QS == true){                       // Quantified Self flag is true when arduino finds a heartbeat
+  85   3                fadeRate = 255;                  // Set 'fadeRate' Variable to 255 to fade LED with pulse
+  86   3                sendDataToProcessing('B',BPM);   // send heart rate with a 'B' prefix
+  87   3                sendDataToProcessing('Q',IBI);   // send time between beats with a 'Q' prefix
+  88   3                QS = false;                      // reset the Quantified Self flag for next time    
+  89   3             }
+  90   2        
+  91   2        //ledFadeToBeat();
+  92   2      
+  93   2        delay(138);                             //  take a break 19.6ms
+  94   2      
+  95   2      }
+  96   1      }
+  97          
+  98          
+  99          //void ledFadeToBeat(){
+ 100          //    fadeRate -= 15;                         //  set LED fade value
+ 101          //    fadeRate = constrain(fadeRate,0,255);   //  keep LED fade value from going into negative numbers!
+ 102          //    analogWrite(fadePin,fadeRate);          //  fade LED
+ 103          //  }
+ 104          
+ 105          
+ 106          void sendDataToProcessing(char symbol, int dat ){
+ 107   1          putchar(symbol);                // symbol prefix tells Processing what type of data is coming
+ 108   1          printf("%d\r\n",dat);           // the data to send culminating in a carriage return
+ 109   1        }
+ 110          
+ 111          void UART_init(void)
+ 112          {
+ 113   1         PCON &= 0x7f;  //波特率不倍速
+ 114   1         SCON = 0x50;  //8位数据，可变波特率
+ 115   1         BRT = 0xFD;    //独立波特率产生器初值
+ 116   1         AUXR |= 0x04;  //时钟设置为1T模式
+ 117   1         AUXR |= 0x01;  //选择独立波特率产生器
+C51 COMPILER V9.06   MAIN                                                                  04/28/2014 09:07:59 PAGE 3   
+
+ 118   1         AUXR |= 0x10;  //启动波特率产生
+ 119   1      }
+ 120           char putchar(unsigned char dat)
+ 121          {
+ 122   1        TI=0;
+ 123   1        SBUF=dat;
+ 124   1        while(!TI);
+ 125   1        TI=0;
+ 126   1        
+ 127   1        return SBUF;
+ 128   1      }
+ 129          void delay(unsigned int n)
+ 130          {
+ 131   1        unsigned int i,j;
+ 132   1        for(i=0;i<n;i++)
+ 133   1          for(j=0;j<100;j++);
+ 134   1      }
+ 135          void LED_Disp_Seg7(void)
+ 136          {
+ 137   1      
+ 138   1        LedCtrl = LedCtrl | 0xf0;
+ 139   1        switch(order)
+ 140   1        {
+ 141   2          case 0:
+ 142   2            LedPort = LED_Disp[DisBuff[0]];
+ 143   2            LedCtrl = LedCtrl & 0x7f;
+ 144   2            break;
+ 145   2          case 1:
+ 146   2            LedPort = LED_Disp[DisBuff[1]];
+ 147   2            LedCtrl = LedCtrl & 0xbf;
+ 148   2            break;
+ 149   2          case 2:
+ 150   2            if(DisBuff[2]==0)
+ 151   2              LedCtrl = LedCtrl | 0xf0;
+ 152   2            else
+ 153   2            {
+ 154   3              LedPort = LED_Disp[DisBuff[2]];
+ 155   3              LedCtrl = LedCtrl & 0xdf;
+ 156   3            }
+ 157   2            break;
+ 158   2          default:
+ 159   2            LedCtrl = LedCtrl | 0xf0;
+ 160   2        }
+ 161   1         if(++order>2)
+ 162   1            order=0;
+ 163   1      }
+ 164          
+ 165          
+ 166          
+ 167          
+ 168          void T0_init(void){     
+ 169   1        // Initializes Timer0 to throw an interrupt every 2mS.
+ 170   1        TMOD |= 0x01; //16bit TIMER
+ 171   1        TL0=T0MS;
+ 172   1        TH0=T0MS>>8;
+ 173   1        TR0=1;    //start Timer 0
+ 174   1        ET0=1;    //enable Timer Interrupt
+ 175   1        EA=1;             // MAKE SURE GLOBAL INTERRUPTS ARE ENABLED      
+ 176   1      } 
+ 177          
+ 178          void ADC_init(unsigned char channel)
+ 179          {
+C51 COMPILER V9.06   MAIN                                                                  04/28/2014 09:07:59 PAGE 4   
+
+ 180   1        P1ASF=ADC_MASK<<channel;  //enable PlusePin as ADC INPUT
+ 181   1        ADC_RES=0;  //clear former ADC result
+ 182   1        ADC_RESL=0; //clear former ADC result
+ 183   1        AUXR1 |= 0x04;  //adjust the format of ADC result
+ 184   1        ADC_CONTR=channel|ADC_POWER|ADC_SPEEDLL|ADC_START;  //power on ADC and start conversion
+ 185   1      }
+ 186          
+ 187          unsigned int analogRead(unsigned char channel)
+ 188          {
+ 189   1        unsigned int result;
+ 190   1      
+ 191   1        ADC_CONTR &=!ADC_FLAG;  //clear ADC FLAG
+ 192   1        result=ADC_RES;
+ 193   1        result=result<<8;
+ 194   1        result+=ADC_RESL;
+ 195   1        ADC_CONTR|=channel|ADC_POWER|ADC_SPEEDLL|ADC_START;
+ 196   1        return result;
+ 197   1      }
+ 198          // Timer 0中断子程序，每2MS中断一次，读取AD值，计算心率值
+ 199          void Timer0_rountine(void) interrupt 1
+ 200          {                       
+ 201   1        int N;
+ 202   1        unsigned char i;
+ 203   1        // keep a running total of the last 10 IBI values
+ 204   1        unsigned int runningTotal = 0;                  // clear the runningTotal variable    
+ 205   1      
+ 206   1        EA=0;                                      // disable interrupts while we do this
+ 207   1        TL0=T0MS;
+ 208   1        TH0=T0MS>>8;        //reload 16 bit TIMER0
+ 209   1        Signal = analogRead(PulsePin);              // read the Pulse Sensor 
+ 210   1        sampleCounter += 2;                         // keep track of the time in mS with this variable
+ 211   1        N = sampleCounter - lastBeatTime;       // monitor the time since the last beat to avoid noise
+ 212   1        LED_Disp_Seg7();
+ 213   1      
+ 214   1      
+ 215   1          //  find the peak and trough of the pulse wave
+ 216   1        if(Signal < thresh && N > (IBI/5)*3){       // avoid dichrotic noise by waiting 3/5 of last IBI
+ 217   2          if (Signal < Trough){                        // T is the trough
+ 218   3            Trough = Signal;                         // keep track of lowest point in pulse wave 
+ 219   3          }
+ 220   2        }
+ 221   1      
+ 222   1        if(Signal > thresh && Signal > Peak){          // thresh condition helps avoid noise
+ 223   2          Peak = Signal;                             // P is the peak
+ 224   2        }                                        // keep track of highest point in pulse wave
+ 225   1      
+ 226   1        //  NOW IT'S TIME TO LOOK FOR THE HEART BEAT
+ 227   1        // signal surges up in value every time there is a pulse
+ 228   1        if (N > 250){                                   // avoid high frequency noise
+ 229   2          if ( (Signal > thresh) && (Pulse == false) && (N > (IBI/5)*3) ){        
+ 230   3            Pulse = true;                               // set the Pulse flag when we think there is a pulse
+ 231   3            blinkPin=0;               // turn on pin 13 LED
+ 232   3            IBI = sampleCounter - lastBeatTime;         // measure time between beats in mS
+ 233   3            lastBeatTime = sampleCounter;               // keep track of time for next pulse
+ 234   3      
+ 235   3            if(secondBeat){                        // if this is the second beat, if secondBeat == TRUE
+ 236   4              secondBeat = false;                  // clear secondBeat flag
+ 237   4              for(i=0; i<=9; i++){             // seed the running total to get a realisitic BPM at startup
+ 238   5                rate[i] = IBI;                      
+ 239   5              }
+ 240   4            }
+ 241   3      
+C51 COMPILER V9.06   MAIN                                                                  04/28/2014 09:07:59 PAGE 5   
+
+ 242   3            if(firstBeat){                         // if it's the first time we found a beat, if firstBeat == TR
+             -UE
+ 243   4              firstBeat = false;                   // clear firstBeat flag
+ 244   4              secondBeat = true;                   // set the second beat flag
+ 245   4              EA=1;                               // enable interrupts again
+ 246   4              return;                              // IBI value is unreliable so discard it
+ 247   4            }   
+ 248   3      
+ 249   3      
+ 250   3      
+ 251   3            for(i=0; i<=8; i++){                // shift data in the rate array
+ 252   4              rate[i] = rate[i+1];                  // and drop the oldest IBI value 
+ 253   4              runningTotal += rate[i];              // add up the 9 oldest IBI values
+ 254   4            }
+ 255   3      
+ 256   3            rate[9] = IBI;                          // add the latest IBI to the rate array
+ 257   3            runningTotal += rate[9];                // add the latest IBI to runningTotal
+ 258   3            runningTotal /= 10;                     // average the last 10 IBI values 
+ 259   3            BPM = 60000/runningTotal;               // how many beats can fit into a minute? that's BPM!
+ 260   3            if(BPM>200)BPM=200;     //限制BPM最高显示值
+ 261   3            if(BPM<30)BPM=30;       //限制BPM最低显示值
+ 262   3            DisBuff[0]   = BPM%10;//取个位数
+ 263   3            DisBuff[1]   = BPM%100/10; //取十位数
+ 264   3            DisBuff[2]   = BPM/100;    //百位数
+ 265   3            QS = true;                              // set Quantified Self flag 
+ 266   3            // QS FLAG IS NOT CLEARED INSIDE THIS ISR
+ 267   3          }                       
+ 268   2        }
+ 269   1      
+ 270   1        if (Signal < thresh && Pulse == true){   // when the values are going down, the beat is over
+ 271   2          blinkPin=1;            // turn off pin 13 LED
+ 272   2          Pulse = false;                         // reset the Pulse flag so we can do it again
+ 273   2          amp = Peak - Trough;                           // get amplitude of the pulse wave
+ 274   2          thresh = amp/2 + Trough;                    // set thresh at 50% of the amplitude
+ 275   2          Peak = thresh;                            // reset these for next time
+ 276   2          Trough = thresh;
+ 277   2        }
+ 278   1      
+ 279   1        if (N > 2500){                           // if 2.5 seconds go by without a beat
+ 280   2          thresh = 512;                          // set thresh default
+ 281   2          Peak = 512;                               // set P default
+ 282   2          Trough = 512;                               // set T default
+ 283   2          lastBeatTime = sampleCounter;          // bring the lastBeatTime up to date        
+ 284   2          firstBeat = true;                      // set these to avoid noise
+ 285   2          secondBeat = false;                    // when we get the heartbeat back
+ 286   2        }
+ 287   1      
+ 288   1        EA=1;                                   // enable interrupts when youre done!
+ 289   1      }// end isr
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    928    ----
+   CONSTANT SIZE    =     21    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     49       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      4    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

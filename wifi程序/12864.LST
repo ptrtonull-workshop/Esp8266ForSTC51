@@ -1,0 +1,102 @@
+C51 COMPILER V9.01   12864                                                                 08/28/2015 00:14:57 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 12864
+OBJECT MODULE PLACED IN 12864.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE 12864.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          
+   3          sbit CS  =  P2^0;       //片选 高电平有效 单片LCD使用时可固定高电平      rs
+   4          sbit SID  = P2^1;       //数据  rw
+   5          sbit SCLK = P2^2;       //时钟   e
+   6          sbit RESET = P2^3;      //LCD复位，LCD模块自带复位电路。可不接
+   7          
+   8          void print(unsigned char *s);
+   9          void write(bit start, unsigned char ddata);
+  10          void sendbyte(unsigned char bbyte);
+  11          void delaynms(unsigned int di);
+  12          void lcdinit(void);
+  13          //void lcdtest(void);
+  14          
+  15          
+  16          void print(unsigned char *s)
+  17          {
+  18   1        
+  19   1         while(*s!='\0')
+  20   1         {
+  21   2            write(1,*s);
+  22   2                s++;
+  23   2                delaynms(10);
+  24   2         }
+  25   1        
+  26   1      
+  27   1      }
+  28          
+  29          void lcdinit(void)      //初始化LCD 
+  30          {
+  31   1        delaynms(10); //启动等待，等LCM讲入工作状态
+  32   1               //串口驱动模式
+  33   1        RESET=0; delaynms(1); RESET=1; // 复位LCD
+  34   1        CS=1;
+  35   1        write(0,0x30);  //8 位介面，基本指令集
+  36   1        write(0,0x0c);  //显示打开，光标关，反白关
+  37   1        write(0,0x01);  //清屏，将DDRAM的地址计数器归零  
+  38   1      }
+  39          
+  40          void write(bit start, unsigned char ddata) //写指令或数据
+  41          {
+  42   1        unsigned char start_data,Hdata,Ldata;
+  43   1        if(start==0) start_data=0xf8;  //写指令
+  44   1          else       start_data=0xfa;  //写数据
+  45   1        
+  46   1        Hdata=ddata&0xf0;               //取高四位
+  47   1        Ldata=(ddata<<4)&0xf0;  //取低四位
+  48   1        sendbyte(start_data);   //发送起始信号
+  49   1        delaynms(5); //延时是必须的
+  50   1        sendbyte(Hdata);            //发送高四位
+  51   1        delaynms(1);  //延时是必须的
+  52   1        sendbyte(Ldata);                //发送低四位
+  53   1        delaynms(1);  //延时是必须的
+  54   1      }
+  55          
+C51 COMPILER V9.01   12864                                                                 08/28/2015 00:14:57 PAGE 2   
+
+  56          void sendbyte(unsigned char bbyte) //发送一个字节
+  57          {
+  58   1       unsigned char i;
+  59   1       for(i=0;i<8;i++)
+  60   1         {
+  61   2         SID=bbyte&0x80; //取出最高位
+  62   2         SCLK=1;
+  63   2         SCLK=0;
+  64   2         bbyte<<=1; //左移
+  65   2         }  
+  66   1      }
+  67          
+  68          void delaynms(unsigned int di) //延时
+  69          {
+  70   1       unsigned int da,db;
+  71   1       for(da=0;da<di;da++)
+  72   1         for(db=0;db<10;db++);
+  73   1      }
+  74          
+  75          
+  76          
+  77           
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    238    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       7
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

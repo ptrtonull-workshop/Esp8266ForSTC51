@@ -1,0 +1,15 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+F:\快盘\工作资料\生理信号测量与分析\脉搏测量仪\脉搏传感器\国外开源pulse_sensor\pulsesensor_STC12C5A\pulsesensor_STC12C5A.uvproj
+Project File Date:  04/25/2014
+
+<h2>Output:</h2>
+Build target 'Target 1'
+compiling main.c...
+linking...
+Program Size: data=84.5 xdata=0 code=2579
+creating hex file from "pulsesensor_STC12C5A"...
+"pulsesensor_STC12C5A" - 0 Error(s), 0 Warning(s).

@@ -1,0 +1,90 @@
+C51 COMPILER V9.01   12864                                                                 08/28/2015 11:21:59 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE 12864
+OBJECT MODULE PLACED IN 12864.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE 12864.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          #include<head_file.h>
+   3          
+   4          
+   5          
+   6          void print(unsigned char *s)
+   7          {
+   8   1        
+   9   1         while(*s!='\0')
+  10   1         {
+  11   2            write(1,*s);
+  12   2                s++;
+  13   2         }
+  14   1        
+  15   1      
+  16   1      }
+  17          
+  18          void lcdinit(void)      //初始化LCD 
+  19          {
+  20   1        delaynms(10); //启动等待，等LCM讲入工作状态
+  21   1        RESET=0; delaynms(1); RESET=1; // 复位LCD
+  22   1        CS=1;
+  23   1        write(0,0x30);  //8 位介面，基本指令集
+  24   1        write(0,0x0c);  //显示打开，光标关，反白关
+  25   1        write(0,0x01);  //清屏，将DDRAM的地址计数器归零  
+  26   1      }
+  27          
+  28          void write(bit start, unsigned char ddata) //写指令或数据
+  29          {
+  30   1        unsigned char start_data,Hdata,Ldata;
+  31   1        if(start==0) start_data=0xf8;  //写指令
+  32   1          else       start_data=0xfa;  //写数据
+  33   1        
+  34   1        Hdata=ddata&0xf0;               //取高四位
+  35   1        Ldata=(ddata<<4)&0xf0;  //取低四位
+  36   1        sendbyte(start_data);   //发送起始信号
+  37   1        delaynms(5); //延时是必须的
+  38   1        sendbyte(Hdata);            //发送高四位
+  39   1        delaynms(1);  //延时是必须的
+  40   1        sendbyte(Ldata);                //发送低四位
+  41   1        delaynms(1);  //延时是必须的
+  42   1      }
+  43          
+  44          void sendbyte(unsigned char bbyte) //发送一个字节
+  45          {
+  46   1       unsigned char i;
+  47   1       for(i=0;i<8;i++)
+  48   1         {
+  49   2         SID=bbyte&0x80; //取出最高位
+  50   2         SCLK=1;
+  51   2         SCLK=0;
+  52   2         bbyte<<=1; //左移
+  53   2         }  
+  54   1      }
+  55          
+C51 COMPILER V9.01   12864                                                                 08/28/2015 11:21:59 PAGE 2   
+
+  56          void delaynms(unsigned int di) //延时
+  57          {
+  58   1       unsigned int da,db;
+  59   1       for(da=0;da<di;da++)
+  60   1         for(db=0;db<10;db++);
+  61   1      }
+  62          
+  63          
+  64          
+  65           
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    194    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       7
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

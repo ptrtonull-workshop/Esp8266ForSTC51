@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"main.obj",
+"1602.obj",
+"2402.obj" 
+TO "jiaquan" 
+RAMSIZE(256) 

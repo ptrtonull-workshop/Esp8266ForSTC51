@@ -1,0 +1,276 @@
+C51 COMPILER V9.01   MAIN                                                                  08/27/2015 09:51:23 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          
+   2          //头文件
+   3          #include "STC12c5A.h"
+   4          #include "1602.h"
+   5          #include "2402.h"
+   6          
+   7          #define uchar unsigned char
+   8          #define uint  unsigned int
+   9          
+  10          
+  11          //定义按键
+  12          
+  13          sbit Key_Up_   = P3^4;
+  14          sbit Key_Down  = P3^5;
+  15          //定义风扇
+  16          sbit fs = P2^0;
+  17          
+  18          
+  19          //定义蜂鸣器LED报警
+  20          
+  21          sbit DUST_Warn = P3^3;
+  22          sbit  LED1 = P2^3;
+  23          sbit  LED2 = P2^4;
+  24          //定义标识
+  25          uchar FlagStart = 0;  
+  26          sbit  LED = P3^2;
+  27          
+  28          
+  29          //全局变量定义，
+  30          const char ADC =   0x00;            //P1^0
+  31                             
+  32          uint Counter;
+  33          uint DUST_SET;              //固体颗粒的阈值
+  34          float   DUST_Value; 
+  35          
+  36          uchar ADC_Get[10]={0};    //定义AD采样数组
+  37          uchar num=0;
+  38          
+  39          //函数声明
+  40          
+  41          void Data_Init();
+  42          void Timer0_Init();
+  43          void Port_Init();
+  44          void ADC_Init();
+  45          uchar GetADVal(uchar);
+  46          void KeyProcess(void);
+  47          
+  48          
+  49          
+  50          //数据初始化
+  51          void Data_Init()
+  52          {
+  53   1         Counter = 0;
+  54   1         FlagStart=0;
+  55   1         DUST_Value=0;
+C51 COMPILER V9.01   MAIN                                                                  08/27/2015 09:51:23 PAGE 2   
+
+  56   1         DUST_Warn=1;
+  57   1         LED=0;
+  58   1         fs=1;
+  59   1      }
+  60          
+  61          //DS---185页  定时器初始化 定时10ms
+  62          void Timer0_Init()
+  63          {
+  64   1              
+  65   1              //AUXR=0x80; //Time work in 1T mode      
+  66   1              TMOD = 1;      
+  67   1              TL0 = (65536-30000)/256;     
+  68   1              TH0 = (65536-30000)%256;    
+  69   1              TR0 = 1;
+  70   1              ET0 = 1;   
+  71   1              EA = 1;     
+  72   1      }
+  73          
+  74          //定时器0中断
+  75          void Timer0_ISR (void) interrupt 1 using 0
+  76          {
+  77   1        uint i,j;     
+  78   1              TL0 = (65536-30000)/256;     
+  79   1              TH0 = (65536-30000)%256;   
+  80   1              LED=1;                                   //开启传感器的ＬＥＤ
+  81   1              
+  82   1           for (j=0;j<222;j++);  //0.28ms  //延时0.28ms
+  83   1              
+  84   1              ADC_Get[num]=GetADVal(ADC);       //开启ADC采集
+  85   1              num++;
+  86   1              if(num>9)
+  87   1              {
+  88   2                FlagStart=1;
+  89   2                num=0;
+  90   2                TR0 = 0;   //先关闭定时器0
+  91   2                EA = 0; 
+  92   2              }                                                  //采集10次，关闭定时器0，进行数据处理
+  93   1      //      for (j=0;j<25;j++);
+  94   1                                                                 //关闭传感器LED
+  95   1              LED=0;
+  96   1      
+  97   1      }
+*** WARNING C280 IN LINE 77 OF MAIN.C: 'i': unreferenced local variable
+  98          
+  99          //端口功能设置
+ 100          void Port_Init()
+ 101          {
+ 102   1         P1M0 = 0x03;  //DS--88页IO口功能设置，设为开漏11 
+ 103   1         P1M1 = 0x03;  //   
+ 104   1      }
+ 105          
+ 106          void ADC_Init()  //DS-282页
+ 107          {
+ 108   1         
+ 109   1         P1ASF = 0x03;   //开启通道0,1 
+ 110   1         ADC_RES = 0;              
+ 111   1         ADC_CONTR=ADC_POWER|ADC_SPEEDLL; //每次转换需要420个时钟周期          
+ 112   1         delay_ms(10);
+ 113   1      
+ 114   1      }
+ 115          
+ 116          
+C51 COMPILER V9.01   MAIN                                                                  08/27/2015 09:51:23 PAGE 3   
+
+ 117          //存入设定值  将设定值存储在24C02中
+ 118          void Save_Setting(void)
+ 119          {
+ 120   1         uchar Save;
+ 121   1         Save =DUST_SET/256;
+ 122   1         IIC_Write(0x00, Save);
+ 123   1         Save =DUST_SET%256;
+ 124   1         delay_ms(10);
+ 125   1         IIC_Write(0x01, Save);            
+ 126   1         
+ 127   1      }
+ 128          
+ 129          //载入设定值  从24C02中读取设定值
+ 130          void Load_Setting()
+ 131          {
+ 132   1         
+ 133   1         DUST_SET=0;
+ 134   1         DUST_SET = IIC_Read(0x00);
+ 135   1         DUST_SET*=256;
+ 136   1         delay_ms(10);
+ 137   1         DUST_SET+= IIC_Read(0x01);
+ 138   1         if ((DUST_SET>=760)||(DUST_SET<=0)) DUST_SET =100;
+ 139   1      }
+ 140          
+ 141          //按键处理程序
+ 142          void KeyProcess(void)
+ 143          {
+ 144   1         uchar Temp;
+ 145   1         uint i,j;
+ 146   1         Temp=P3;
+ 147   1         Temp&=0xf0;
+ 148   1         if(Temp!=0xf0)
+ 149   1          {
+ 150   2               
+ 151   2               //延时
+ 152   2               //for (i=0;i<500;i++)
+ 153   2            //for (j=0;j<254;j++);
+ 154   2               Temp=P3;
+ 155   2            Temp&=0xf0;
+ 156   2               if(Temp!=0xf0)
+ 157   2               {
+ 158   3                  switch(Temp)
+ 159   3                 {
+ 160   4                 case 0xE0:  DUST_SET++;   break;               //     设定值+
+ 161   4                 case 0XD0:  DUST_SET--;   break;               //     设定值-
+ 162   4                 default: break;
+ 163   4              
+ 164   4                 }
+ 165   3                 //值限定
+ 166   3                
+ 167   3                 
+ 168   3                  if (DUST_SET>=760)
+ 169   3                      DUST_SET =760;
+ 170   3                  if (DUST_SET<=1)
+ 171   3                      DUST_SET =0;
+ 172   3                 Save_Setting();
+ 173   3      
+ 174   3               }
+ 175   2               
+ 176   2         }
+ 177   1      }
+*** WARNING C280 IN LINE 145 OF MAIN.C: 'i': unreferenced local variable
+C51 COMPILER V9.01   MAIN                                                                  08/27/2015 09:51:23 PAGE 4   
+
+*** WARNING C280 IN LINE 145 OF MAIN.C: 'j': unreferenced local variable
+ 178          void main()
+ 179          {
+ 180   1         uchar read; 
+ 181   1         uint DUST;
+ 182   1         EA = 0;          //总中断关闭             
+ 183   1         Data_Init();     //数据初始化
+ 184   1         Port_Init();     //端口初始化
+ 185   1         IIC_Init();
+ 186   1      
+ 187   1         LCD_Init();  //液晶初始化
+ 188   1         LCD_Clear();//清屏 
+ 189   1         LCD_Write_String(4,0,"Welcome");
+ 190   1         LCD_Write_String(0,1,"PM2.5  Detector");
+ 191   1         delay_ms(2000);
+ 192   1        
+ 193   1         LCD_Clear();//清屏
+ 194   1         delay_ms(10); 
+ 195   1         LCD_Write_String(0,0,"PM2.5:     mg/m3");
+ 196   1         LCD_Write_String(0,1,"Alarm:     mg/m3");
+ 197   1         
+ 198   1         //载入设定值
+ 199   1         Load_Setting();
+ 200   1         
+ 201   1         ADC_Init();        //ADC初始化
+ 202   1         delay_ms(10);
+ 203   1         Timer0_Init();   //定时器0初始化
+ 204   1         num=0;       
+ 205   1         DUST=0;
+ 206   1         FlagStart=0;
+ 207   1         
+ 208   1         
+ 209   1         while(1)
+ 210   1         {
+ 211   2               if(FlagStart==1)       //10次采集完成
+ 212   2               {
+ 213   3                //////////////////////////////
+ 214   3                DUST=Error_Correct(ADC_Get,10);               //求取10次AD采样的值
+*** WARNING C206 IN LINE 214 OF MAIN.C: 'Error_Correct': missing function-prototype
+*** ERROR C267 IN LINE 214 OF MAIN.C: 'Error_Correct': requires ANSI-style prototype
+ 215   3                DUST_Value=(DUST/256.0)*5000;         //转化成电压值MV
+ 216   3                DUST_Value=DUST_Value*0.172-99.9; //DUST_Value=((DUST)*38)/4-202;//   //固体悬浮颗粒浓度计算 Y=0.172*X-0.
+             -0999      X--采样电压V
+ 217   3                if(DUST_Value<0)            DUST_Value=0;
+ 218   3                if(DUST_Value>760)     DUST_Value=760;        //限位
+ 219   3                DUST=(uint)DUST_Value;                                         //
+ 220   3                
+ 221   3                LCD_Show4(6,0,DUST);
+ 222   3                LCD_Show4(6,1,DUST_SET);                           //显示结果
+ 223   3      
+ 224   3                if(DUST>DUST_SET)
+ 225   3                { 
+ 226   4                      DUST_Warn=0;
+ 227   4                      fs=0;
+ 228   4                      LED1=1;
+ 229   4                      LED2=0;  
+ 230   4                      }      //超过阈值，报警
+ 231   3                else
+ 232   3               { DUST_Warn=1;
+ 233   4                      fs=1;
+ 234   4                      LED1=0;
+ 235   4                      LED2=1;
+C51 COMPILER V9.01   MAIN                                                                  08/27/2015 09:51:23 PAGE 5   
+
+ 236   4                      }
+ 237   3      
+ 238   3                
+ 239   3                KeyProcess();
+ 240   3                delay_ms(100);
+ 241   3                TL0 = (65536-30000)/256;     
+ 242   3                TH0 = (65536-30000)%256; 
+ 243   3                TR0 = 1;   //开启定时器0
+ 244   3                EA = 1;
+ 245   3                FlagStart=0;
+ 246   3               }
+ 247   2               
+ 248   2               
+ 249   2         }
+ 250   1         
+ 251   1      }
+
+C51 COMPILATION COMPLETE.  4 WARNING(S),  1 ERROR(S)

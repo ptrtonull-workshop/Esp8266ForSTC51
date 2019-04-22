@@ -1,0 +1,247 @@
+C51 COMPILER V9.01   MAIN                                                                  08/28/2015 09:57:29 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE main.c BROWSE INCDIR(..\PM2.5) DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          
+   2          //头文件
+   3          #include "STC12c5A.h"
+   4          #include<head_file.h>
+   5          
+   6          #define FOSC 11059200L          //系统时钟
+   7          
+   8          
+   9          
+  10          bit  FlagStart,DUST_Warn;
+  11          
+  12          
+  13          
+  14          //全局变量定义，
+  15          const char ADC =   0x00;            //P1^0
+  16                             
+  17          uint Counter;
+  18          uint DUST_SET;              //固体颗粒的阈值
+  19          float   DUST_Value; 
+  20          
+  21          uchar ADC_Get[10]={0};    //定义AD采样数组
+  22          uchar num=0;
+  23          
+  24          //函数声明
+  25          void delay_us(uint t);
+  26          void delay_ms(uint t);
+  27          void Data_Init();
+  28          void Timer0_Init();
+  29          void Port_Init();
+  30          void ADC_Init();
+  31          uchar GetADVal(uchar);
+  32          
+  33          void UART_init(void); 
+  34          
+  35          
+  36          void delay_us(uint t)
+  37          {   
+  38   1                uint T;
+  39   1                T=t;
+  40   1                while(T!=0)
+  41   1                T--;
+  42   1      }
+  43          
+  44          void delay_ms(uint t)
+  45          {
+  46   1           
+  47   1              uint T;
+  48   1              T=t;
+  49   1              while(T--)
+  50   1              {
+  51   2                      
+  52   2                   
+  53   2                      delay_us(245);
+  54   2                      delay_us(245);
+  55   2                   delay_us(245);
+C51 COMPILER V9.01   MAIN                                                                  08/28/2015 09:57:29 PAGE 2   
+
+  56   2                      delay_us(245);
+  57   2              }
+  58   1      }
+  59          
+  60          
+  61          void UART_init(void)
+  62          {
+  63   1         PCON &= 0x7f;  //波特率不倍速
+  64   1         SCON = 0x50;  //8位数据，可变波特率
+  65   1         BRT = 0xFD;    //独立波特率产生器初值
+  66   1         AUXR |= 0x04;  //时钟设置为1T模式
+  67   1         AUXR |= 0x01;  //选择独立波特率产生器
+  68   1         AUXR |= 0x10;  //启动波特率产生
+  69   1      }
+  70          
+  71          
+  72          
+  73          //进行AD转换，得到当前8位AD值
+  74          uchar GetADVal(uchar CH)
+  75          {
+  76   1         
+  77   1         ADC_CONTR=ADC_POWER|ADC_SPEEDLL|CH|ADC_START;
+  78   1         //delay_ms(1);        
+  79   1         while(!(ADC_CONTR&ADC_FLAG)); //等待ADC转换结束
+  80   1         ADC_CONTR &= ~ADC_FLAG;       //关闭ADC     
+  81   1         return ADC_RES;
+  82   1      }
+  83          
+  84          
+  85          //数据初始化
+  86          void Data_Init()
+  87          {
+  88   1         Counter = 0;
+  89   1         FlagStart=0;
+  90   1         DUST_Value=0;
+  91   1      }
+  92          
+  93          //DS---185页  定时器初始化 定时10ms
+  94          void Timer0_Init()
+  95          {
+  96   1              
+  97   1              //AUXR=0x80; //Time work in 1T mode      
+  98   1              TMOD = 1;      
+  99   1              TL0 = (65536-30000)/256;     
+ 100   1              TH0 = (65536-30000)%256;    
+ 101   1              TR0 = 1;
+ 102   1              ET0 = 1;   
+ 103   1              EA  = 1;     
+ 104   1      }
+ 105          
+ 106          //定时器0中断
+ 107          void Timer0_ISR (void) interrupt 1 using 0
+ 108          {
+ 109   1          uint j;     
+ 110   1              TL0 = (65536-30000)/256;     
+ 111   1              TH0 = (65536-30000)%256;   
+ 112   1        
+ 113   1              
+ 114   1           for (j=0;j<222;j++);  //0.28ms  //延时0.28ms
+ 115   1              
+ 116   1              ADC_Get[num]=GetADVal(ADC);       //开启ADC采集
+ 117   1              num++;
+C51 COMPILER V9.01   MAIN                                                                  08/28/2015 09:57:29 PAGE 3   
+
+ 118   1              if(num>9)
+ 119   1              {
+ 120   2                FlagStart=1;
+ 121   2                num=0;
+ 122   2                TR0 = 0;   //先关闭定时器0
+ 123   2                EA = 0; 
+ 124   2              }                                                  //采集10次，关闭定时器0，进行数据处理
+ 125   1      //      for (j=0;j<25;j++);
+ 126   1      
+ 127   1      
+ 128   1      }
+ 129          
+ 130          //端口功能设置
+ 131          void Port_Init()
+ 132          {
+ 133   1         P1M0 = 0x03;  //DS--88页IO口功能设置，设为开漏11 
+ 134   1         P1M1 = 0x03;  //   
+ 135   1      }
+ 136          
+ 137          void ADC_Init()  //DS-282页
+ 138          {
+ 139   1         
+ 140   1         P1ASF = 0x01;   //开启通道0,1 
+ 141   1         ADC_RES = 0;              
+ 142   1         ADC_CONTR=ADC_POWER|ADC_SPEEDLL; //每次转换需要420个时钟周期          
+ 143   1         delay_ms(10);
+ 144   1      
+ 145   1      }
+ 146          
+ 147          //中值滤波
+ 148          //算法：先进行排序，然后将数组的中间值作为当前值返回。
+ 149          uchar Error_Correct(uchar *str,uchar num) 
+ 150          {
+ 151   1         unsigned char i=0;
+ 152   1         unsigned char j=0;
+ 153   1         uchar Temp=0;
+ 154   1         
+ 155   1         //排序
+ 156   1         for(i=0;i<num-1;i++)
+ 157   1           {
+ 158   2                for(j=i+1;j<num;j++)
+ 159   2                 {
+ 160   3                   if(str[i]<str[j])
+ 161   3                      {
+ 162   4                         Temp=str[i];
+ 163   4                         str[i]=str[j];
+ 164   4                         str[j]=Temp;
+ 165   4                      
+ 166   4                      }
+ 167   3                 
+ 168   3                 }
+ 169   2              }
+ 170   1          //去除误差，取中间值
+ 171   1          return str[num/2];
+ 172   1      
+ 173   1      }
+ 174          //存入设定值  将设定值存储在24C02中
+ 175          
+ 176          
+ 177          
+ 178          void main()
+ 179          {
+C51 COMPILER V9.01   MAIN                                                                  08/28/2015 09:57:29 PAGE 4   
+
+ 180   1         uint DUST=0;
+ 181   1         EA = 0;          //总中断关闭
+ 182   1                   
+ 183   1         Data_Init();     //数据初始化
+ 184   1         set_wifi();
+ 185   1         Port_Init();     //端口初始化
+ 186   1         UART_init();
+ 187   1         ADC_Init();        //ADC初始化
+ 188   1         delay_ms(10);
+ 189   1      
+ 190   1         
+ 191   1      
+ 192   1         Timer0_Init();   //定时器0初始化
+ 193   1         num=0;       
+ 194   1         DUST=0;
+ 195   1         FlagStart=0;
+ 196   1         while(1)
+ 197   1         {
+ 198   2               if(FlagStart==1)       //10次采集完成
+ 199   2               {
+ 200   3                //////////////////////////////
+ 201   3                DUST=Error_Correct(ADC_Get,10);               //求取10次AD采样的值
+ 202   3                DUST_Value=(DUST/256.0)*5000;         //转化成电压值MV
+ 203   3                DUST_Value=DUST_Value*0.172-99.9; //DUST_Value=((DUST)*38)/4-202;//   //固体悬浮颗粒浓度计算 Y=0.172*X-0.
+             -0999      X--采样电压V
+ 204   3                if(DUST_Value<0)            DUST_Value=0;
+ 205   3                if(DUST_Value>760)     DUST_Value=760;        //限位
+ 206   3                DUST=(uint)DUST_Value;                                         //
+ 207   3      
+ 208   3                delay_ms(100);
+ 209   3                FlagStart=0;
+ 210   3      
+ 211   3           }
+ 212   2                  RH();
+ 213   2                SendData(DUST);    
+ 214   2               
+ 215   2        }
+ 216   1         
+ 217   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    544    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     20       7
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,5 @@
+"STARTUP.obj",
+"main.obj",
+"LCD12864.obj" 
+TO "pulsesensor_STC12C5A" 
+RAMSIZE(256) 

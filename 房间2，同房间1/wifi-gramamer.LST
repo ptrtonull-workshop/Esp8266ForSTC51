@@ -1,0 +1,292 @@
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 10:51:45 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE WIFI_GRAMAMER
+OBJECT MODULE PLACED IN wifi-gramamer.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE wifi-gramamer.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          #include<head_file.h>
+   3          #include"math.h"
+   4          #include"string.h"
+   5          #include <ctype.h>
+   6          
+   7          #define RX1_Lenth       32                      //串口接收缓冲长度
+   8          
+   9          uchar   RX1_Cnt=0;                      //接收计数
+  10          bit flag=0;
+  11          
+  12          
+  13          sbit  yanwu=P1^1;
+  14          uchar   yanwu_f;
+  15          uchar Dis_f;
+  16          extern  uchar  U8T_data_H,U8T_data_L,U8RH_data_H,U8RH_data_L,U8checkdata;
+  17          uchar code senddata[10]={0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39};
+  18          uchar idata RX1_Buffer[RX1_Lenth];      //接收缓冲
+  19          uchar idata RX_Buffer[RX1_Lenth];       //接收缓冲
+  20          uchar idata PM[8];
+  21          
+  22          
+  23          uchar time=0;
+  24          void Delay2(unsigned long cnt)
+  25          {
+  26   1              long i;
+  27   1              for(i=0;i<cnt*50;i++);
+  28   1      }
+  29          void Tranfer(uchar *s)
+  30          {
+  31   1      
+  32   1         while(*s!='\0')
+  33   1         {
+  34   2           SBUF= toascii(*s);
+  35   2               while(!TI);
+  36   2               TI=0;
+  37   2           s++;
+  38   2               Delay2(1);
+  39   2         }
+  40   1      
+  41   1      }                                                
+  42          
+  43          
+  44          /* *******************配置wifi******************/
+  45          void set_wifi(void)
+  46          {
+  47   1          write(0,0x80);
+  48   1              print("系统初始化...");
+  49   1          Delay2(500);
+  50   1          Tranfer("AT+RST\r\n");
+  51   1              write(0,0x80);
+  52   1              print("系统初始化....");        
+  53   1              Delay2(1000);
+  54   1              Tranfer("AT+CIPMUX=0\r\n");      //单链接
+  55   1              write(0,0x80);
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 10:51:45 PAGE 2   
+
+  56   1              print("系统初始化失败");
+  57   1              Delay2(500);
+  58   1          Tranfer("AT+CIPSTART=\"TCP\",\"192.168.4.1\",5000\r\n");
+  59   1              write(0,0x80);
+  60   1              print("应该成功了~~~~~~"); 
+  61   1              
+  62   1              Delay2(500);
+  63   1              write(0,0x80);
+  64   1              print("接收数据中....  ");Delay2(500);
+  65   1              write(0,0x80);
+  66   1              print("                ");
+  67   1          
+  68   1      }
+  69          /********************系统初始化**************************/
+  70          void SysInit()
+  71          {
+  72   1         lcdinit();
+  73   1          SCON=0X50;                  //设置为工作方式1
+  74   1              TMOD=0X21;                      //设置计数器工作方式1
+  75   1              TH1=0XFD;                   //计数器初始值设置，注意波特率是9600
+  76   1              TL1=0XFD;
+  77   1              TH0=0X3C;
+  78   1              TL0=0XB0;       
+  79   1              TR1=1;
+  80   1              ET0=1;                                              //打开计数器
+  81   1              set_wifi();                                             //打开接收中断
+  82   1              EA=1;                                   //打开总中断
+  83   1              ES=1;
+  84   1              TR0=1; 
+  85   1         U8checkdata=0;       
+  86   1      }
+  87          
+  88          /******************************显示函数接收到数据才显示操场并打开定时器***********************************
+             -***************/
+  89          void Display(uchar a,uchar b,uchar c, uchar d,uchar e,uchar f)
+  90          {
+  91   1       uchar i;
+  92   1        if(flag)
+  93   1                {     
+  94   2                 if(Dis_f==1)
+  95   2                         {
+  96   3                                 write(0,0x80);
+  97   3                                 print("      操场      ");
+  98   3                                 write(0,0x90);
+  99   3                                 print("温度:");
+ 100   3                                 write(1,RX1_Buffer[2]);
+ 101   3                                 write(1,RX1_Buffer[3]);
+ 102   3                                 write(1,RX1_Buffer[4]);
+ 103   3                                 write(1,RX1_Buffer[5]);
+ 104   3                                 write(0,0x88);
+ 105   3                                 print("湿度:");
+ 106   3                                 write(1,RX1_Buffer[6]);
+ 107   3                                 write(1,RX1_Buffer[7]);
+ 108   3                                 write(1,RX1_Buffer[8]);
+ 109   3                                 write(1,RX1_Buffer[9]);
+ 110   3                                 write(0,0x98);
+ 111   3                                 print("PM2.5:");
+ 112   3                                 for(i=0;i<5;i++)
+ 113   3                                  write(1,PM[i]);
+ 114   3                         }
+ 115   2                }
+ 116   1        if(Dis_f==2)
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 10:51:45 PAGE 3   
+
+ 117   1                {
+ 118   2                 write(0,0x80);
+ 119   2                 print("      房间内    ");
+ 120   2                 write(0,0x90);
+ 121   2                 print("温度:");
+ 122   2                 write(1,a+48);
+ 123   2                 write(1,b+48);
+ 124   2                 write(1,'.');
+ 125   2                 write(1,c+48);
+ 126   2                 write(0,0x88);
+ 127   2                 print("湿度:");
+ 128   2                 write(1,d+48);
+ 129   2                 write(1,e+48);
+ 130   2                 write(1,'.');
+ 131   2                 write(1,f+48);
+ 132   2                 write(0,0x98);
+ 133   2                 print("烟雾:");
+ 134   2                 write(1,yanwu_f+48);
+ 135   2                }              
+ 136   1      }
+ 137          /***************传感器接收到数据开始处理，并显示房间内温湿度********************/
+ 138          void Dealdata()
+ 139          {
+ 140   1          uchar a,b,c,d,e,f;
+ 141   1              if(U8checkdata)
+ 142   1              {
+ 143   2             U8T_data_H%=100;
+ 144   2                 a=U8T_data_H/10;
+ 145   2                 b=U8T_data_H%10;
+ 146   2                 c=U8T_data_L%10;
+ 147   2                 U8RH_data_H%=100;
+ 148   2                 d=U8RH_data_H/10;
+ 149   2                 e=U8RH_data_H%10;
+ 150   2                 f=U8RH_data_L%10;
+ 151   2           Display(a,b,c,d,e,f);
+ 152   2               SendData(a,b,c,d,e,f);
+ 153   2         }
+ 154   1      }
+ 155          void SendData(uchar a,uchar b,uchar c,uchar d,uchar e,uchar f)
+ 156          {
+ 157   1             ES=0;TR0=0;
+ 158   1                 Tranfer("AT+CIPSEND=10\r\n");
+ 159   1             Tranfer("R2");
+ 160   1                 SBUF=senddata[a];     Delay2(1);
+ 161   1                 SBUF=senddata[b];     Delay2(1);
+ 162   1                 SBUF=0x2e;            Delay2(1);
+ 163   1                 SBUF=senddata[c];     Delay2(1);
+ 164   1                 SBUF=senddata[d];     Delay2(1);
+ 165   1                 SBUF=senddata[e];     Delay2(1);
+ 166   1                 SBUF=0x2e;            Delay2(1);
+ 167   1                 SBUF=senddata[f];     Delay2(20);
+ 168   1                 Tranfer("AT+CIPSEND=10\r\n");
+ 169   1                 Tranfer("R2YWCGQ");
+ 170   1                 SBUF=senddata[yanwu_f];  Delay2(1);
+ 171   1                 SBUF=senddata[0];     Delay2(1);
+ 172   1                 SBUF=senddata[0];     Delay2(20);
+ 173   1                 TR0=1;
+ 174   1                 ES=1;
+ 175   1      }
+ 176          
+ 177          /*********************定时器函数****************************/
+ 178          void time0() interrupt 1
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 10:51:45 PAGE 4   
+
+ 179          {
+ 180   1          TH0=0X3C;
+ 181   1              TL0=0XB0;
+ 182   1          time++;
+ 183   1              if(time==40)
+ 184   1              {
+ 185   2                       Dis_f++;
+ 186   2                if(Dis_f>2)
+ 187   2                {
+ 188   3                       Dis_f=1;
+ 189   3                }
+ 190   2               
+ 191   2              }
+ 192   1      }
+ 193          
+ 194          /*********************中断函数****************************/
+ 195          void Usart() interrupt 4
+ 196          {
+ 197   1       uchar i=0,m=0;
+ 198   1         TR0=0; 
+ 199   1              if(RI)
+ 200   1              {
+ 201   2                 RI=0;
+ 202   2                 RX_Buffer[RX1_Cnt]=SBUF;     //接收缓冲   接收完数据显示
+ 203   2                 if(RX_Buffer[0]==0X52)       // R
+ 204   2                 {
+ 205   3                              RX1_Cnt++;
+ 206   3                 }
+ 207   2                      else
+ 208   2                      {
+ 209   3                          
+ 210   3                              RX1_Cnt=0;
+ 211   3                      }
+ 212   2                      if(RX1_Cnt>=12)
+ 213   2                      {
+ 214   3                        if(RX_Buffer[1]==0x32)
+ 215   3                        {
+ 216   4                         if(RX_Buffer[2]==0X50&&RX_Buffer[3]==0X4D&&RX_Buffer[4]==0X41)//接收PMA校验码         PM2.5
+ 217   4                                      {
+ 218   5                                        for(m=5;m<10;m++)
+ 219   5                                                      {
+ 220   6                                                              PM[i]= RX_Buffer[m];
+ 221   6                                                              i++;
+ 222   6                                                      }
+ 223   5                                      } 
+ 224   4                               else
+ 225   4                               {
+ 226   5                                 for(m=0;m<10;+m++)
+ 227   5                                 {
+ 228   6                                       RX1_Buffer[m]=RX_Buffer[m];
+ 229   6                                       flag=1;
+ 230   6                                 }
+ 231   5                               }
+ 232   4                           RX1_Cnt=0;
+ 233   4                        }
+ 234   3                        else
+ 235   3                         RX1_Cnt=0;              
+ 236   3                      }   
+ 237   2              }
+ 238   1              TR0=1;
+ 239   1      }
+ 240          
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 10:51:45 PAGE 5   
+
+ 241          /************************主函数****************************/
+ 242          void main()
+ 243          {
+ 244   1         SysInit(); 
+ 245   1              while(1)
+ 246   1              {
+ 247   2                /*一直在采集信息，采集到信息 发送数据*/
+ 248   2                 RH();
+ 249   2                 Dealdata();
+ 250   2                 if(yanwu)
+ 251   2                 {
+ 252   3                   yanwu_f=1;
+ 253   3                      }
+ 254   2                 else
+ 255   2                 {
+ 256   3                   yanwu_f=0;
+ 257   3                 }       
+ 258   2              }
+ 259   1      
+ 260   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1122    ----
+   CONSTANT SIZE    =    252    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4      30
+   IDATA SIZE       =     72    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"wifi-gramamer.obj",
+"12864.obj",
+"DHT_T_RH.obj" 
+TO "wifi-gramamer" 
+RAMSIZE(256) 

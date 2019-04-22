@@ -1,0 +1,4 @@
+"STARTUP.obj",
+"wifi-gramamer.obj" 
+TO "wifi-gramamer" 
+RAMSIZE(256) 

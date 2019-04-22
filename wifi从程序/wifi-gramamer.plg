@@ -1,0 +1,16 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+C:\Users\Administrator\Desktop\物联网\所有程序\wifi从程序\wifi-gramamer.uvproj
+Project File Date:  08/21/2015
+
+<h2>Output:</h2>
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-gramamer.c...
+linking...
+Program Size: data=34.1 xdata=0 code=707
+creating hex file from "wifi-gramamer"...
+"wifi-gramamer" - 0 Error(s), 0 Warning(s).

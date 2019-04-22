@@ -1,0 +1,89 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+C:\Users\Administrator\Desktop\物联网\所有程序\wifi程序\wifi-main.uvproj
+Project File Date:  08/25/2015
+
+<h2>Output:</h2>
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-main.c...
+compiling 12864.c...
+linking...
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?WRITE?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?_PRINT?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+Program Size: data=203.0 xdata=53 code=3377
+creating hex file from "wifi-main"...
+"wifi-main" - 0 Error(s), 2 Warning(s).
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-main.c...
+compiling 12864.c...
+linking...
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?WRITE?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?_PRINT?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+Program Size: data=203.0 xdata=53 code=3377
+creating hex file from "wifi-main"...
+"wifi-main" - 0 Error(s), 2 Warning(s).
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-main.c...
+compiling 12864.c...
+linking...
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?WRITE?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?_PRINT?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+Program Size: data=203.0 xdata=53 code=3381
+creating hex file from "wifi-main"...
+"wifi-main" - 0 Error(s), 2 Warning(s).
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-main.c...
+compiling 12864.c...
+linking...
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?WRITE?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?_PRINT?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+Program Size: data=203.0 xdata=53 code=3381
+creating hex file from "wifi-main"...
+"wifi-main" - 0 Error(s), 2 Warning(s).
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling wifi-main.c...
+compiling 12864.c...
+linking...
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?WRITE?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+*** WARNING L15: MULTIPLE CALL TO SEGMENT
+    SEGMENT: ?PR?_PRINT?12864
+    CALLER1: ?C_C51STARTUP
+    CALLER2: ?PR?TIME0?WIFI_MAIN
+Program Size: data=203.0 xdata=53 code=3381
+creating hex file from "wifi-main"...
+"wifi-main" - 0 Error(s), 2 Warning(s).

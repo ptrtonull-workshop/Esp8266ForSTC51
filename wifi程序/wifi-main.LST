@@ -1,0 +1,616 @@
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE WIFI_MAIN
+OBJECT MODULE PLACED IN wifi-main.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE wifi-main.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************
+   2                                   《说明》
+   3          Is_F4 给手机发送信息的标志位 ，发送内容未确定。已写
+   4          
+   5          各个房间发送过来的数据已确定，可接收、可显示。
+   6          
+   7          可以给各个 “房间” 发送从 “操场” 接收到的温湿度数据。
+   8           
+   9          
+  10          
+  11          *****************************/
+  12          
+  13          #include<reg52.h>
+  14          #include"string.h"
+  15          #include <ctype.h>
+  16          #define uchar unsigned char
+  17          #define uint unsigned int
+  18          
+  19          extern void print(uchar *s);
+  20          extern void lcdinit(void);
+  21          extern void write(bit start, uchar ddata);
+  22          void Dis_play();
+  23          /********************烟雾、蜂鸣器，CO**************************/
+  24          sbit YWZ=P1^1;
+  25          sbit YWC=P1^3;
+  26          sbit CO=P1^2;
+  27          sbit Bee=P1^5;
+  28          /*******************按键强制翻页********************/
+  29          sbit k2=P0^0;
+  30          sbit k1=P0^1;
+  31          sbit k4=P0^2;
+  32          sbit k3=P0^3;
+  33          /********************一大堆标志位***********************/
+  34          bit     B_TX1_Busy;     //发送忙标志    
+  35          static  bit   room1_flag=0,room2_flag=0,send_flag=0,time_flag=0,disf=0,Is_F1=0,Is_F2=0,Is_F3=0,Is_F4=0,dis
+             -play_flag=0,PM_F=0;
+  36          static uchar  RX1_Cnt=0,time=0,s_room;  //接收计数
+  37          static uchar ID1,ID2,ID3,ID4,ID5;  
+  38          uchar oldroom=1;
+  39          void Delay2(unsigned long cnt)
+  40          {
+  41   1              long i;
+  42   1              for(i=0;i<cnt*10;i++);
+  43   1      }
+  44          
+  45          /*输出字符串*/
+  46          void Tranfer(uchar *s)
+  47          {
+  48   1      
+  49   1              ES=0;
+  50   1              TR0=0;  
+  51   1         while(*s!='\0')
+  52   1         {
+  53   2           SBUF=toascii(*s);
+  54   2               while(!TI);
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 2   
+
+  55   2               TI=0;
+  56   2           s++;
+  57   2               Delay2(1);
+  58   2         }
+  59   1         ES=1; 
+  60   1         TR0=1;
+  61   1      }
+  62          /*输出数组*/
+  63          void Tranfer_f(uchar *s,uchar Lenth)
+  64          {
+  65   1               ES=0;
+  66   1               TR0=0; 
+  67   1         while(Lenth!=0)
+  68   1         {
+  69   2           SBUF=toascii(*s);   
+  70   2               while(!TI);
+  71   2               TI=0;
+  72   2               s++;
+  73   2               Lenth--;
+  74   2               Delay2(1);
+  75   2         }
+  76   1         ES=1;  
+  77   1         TR0=1;
+  78   1      }
+  79          
+  80          
+  81          #define   RX1_Lenth             32                      //串口接收缓冲长度
+  82          /*************  本地变量声明    **************/
+  83          uchar   idata RX1_Buffer[RX1_Lenth];    //接收缓冲
+  84          uchar   idata RX_Buffer1[RX1_Lenth];    //接收缓冲
+  85          uchar   idata RX_Buffer2[RX1_Lenth];    //接收缓冲
+  86          uchar   idata RX_Buffer3[RX1_Lenth];    //接收缓冲
+  87          uchar   idata RX_Buffer4[RX1_Lenth];    //接收缓冲
+  88          uchar   idata RX_Buffer5[RX1_Lenth];    //接收缓冲
+  89          uchar   PM[8],YW2[8],YW3[8];
+  90          bit YW2_F=0,YW3_F=0;
+  91          
+  92          
+  93          /**********************设置wifi************************/
+  94          void set_wifi()
+  95          {       
+  96   1          Bee=0;
+  97   1         Delay2(1000);
+  98   1         write(0,0x80);
+  99   1         print("系统初始化.");
+ 100   1      
+ 101   1         Delay2(500);  
+ 102   1         Tranfer("AT+CWMODE=2\r\n"); //可发送可接收
+ 103   1         Delay2(1000); 
+ 104   1      
+ 105   1         write(0,0x80);
+ 106   1         print("系统初始化..");
+ 107   1      
+ 108   1         Delay2(50);     
+ 109   1         Tranfer("AT+CWSAP=\"ESP8266\",\"123456789\",11,3\r\n");
+ 110   1         Delay2(2000);
+ 111   1      
+ 112   1         write(0,0x80);
+ 113   1         print("系统初始化...");
+ 114   1      
+ 115   1         Delay2(50);
+ 116   1         Tranfer("AT+RST\r\n");
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 3   
+
+ 117   1         Delay2(1000);
+ 118   1      
+ 119   1         write(0,0x80);
+ 120   1         print("系统初始化.");
+ 121   1      
+ 122   1         Delay2(50);          
+ 123   1         Tranfer("AT+CIPMUX=1\r\n");
+ 124   1         Delay2(1000);
+ 125   1      
+ 126   1         write(0,0x80);
+ 127   1         print("系统初始化..");
+ 128   1          
+ 129   1         Delay2(8); 
+ 130   1         Tranfer("AT+CIPSERVER=1,5000\r\n");
+ 131   1         Delay2(1000);
+ 132   1      
+ 133   1         write(0,0x80);
+ 134   1         print("             ");
+ 135   1      }
+ 136          
+ 137          /****************发送数据*****************/
+ 138          
+ 139          void Udp_send()
+ 140          {
+ 141   1        TR0=0;ES=0;
+ 142   1       if(send_flag)
+ 143   1       { 
+ 144   2        
+ 145   2        if(Is_F1)
+ 146   2        {
+ 147   3                send_flag=0;
+ 148   3                Tranfer("AT+CIPSEND=");
+ 149   3                SBUF=ID1; Delay2(1);
+ 150   3                SBUF=0X2c;Delay2(1);
+ 151   3                SBUF=0X31;Delay2(1);
+ 152   3                SBUF=0X30;Delay2(1);
+ 153   3                SBUF=0X0D;Delay2(1);
+ 154   3                SBUF=0X0A;Delay2(1);
+ 155   3              
+ 156   3                SBUF=0X52;Delay2(1);
+ 157   3                SBUF=0X31;Delay2(1);
+ 158   3                Tranfer_f(RX_Buffer5,8);
+ 159   3                Delay2(5);
+ 160   3                if(PM_F)
+ 161   3                {
+ 162   4                        Tranfer("AT+CIPSEND=");
+ 163   4                        SBUF=ID1; Delay2(1);
+ 164   4                        SBUF=0X2c;Delay2(1);
+ 165   4                        SBUF=0X31;Delay2(1);
+ 166   4                        SBUF=0X30;Delay2(1);
+ 167   4                        SBUF=0X0D;Delay2(1);
+ 168   4                        SBUF=0X0A;Delay2(1);
+ 169   4                      
+ 170   4                        SBUF=0X52;Delay2(1);
+ 171   4                        SBUF=0X31;Delay2(1);
+ 172   4                        Tranfer_f(PM,8);
+ 173   4                        Delay2(5);
+ 174   4                }
+ 175   3        }     
+ 176   2      if(Is_F2)
+ 177   2        {
+ 178   3              
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 4   
+
+ 179   3                send_flag=0;
+ 180   3                Tranfer("AT+CIPSEND=");
+ 181   3                SBUF=ID2;Delay2(1);
+ 182   3                SBUF=0X2c;Delay2(1);
+ 183   3                SBUF=0X31;Delay2(1);
+ 184   3                SBUF=0X30;Delay2(1);
+ 185   3                SBUF=0X0D;Delay2(1);
+ 186   3                SBUF=0X0A;Delay2(1);
+ 187   3              
+ 188   3                SBUF=0X52;Delay2(1);
+ 189   3                SBUF=0X32;Delay2(1);
+ 190   3                Tranfer_f(RX_Buffer5,8);
+ 191   3                Delay2(5);
+ 192   3                if(PM_F)
+ 193   3                {
+ 194   4                        Tranfer("AT+CIPSEND=");
+ 195   4                        SBUF=ID2; Delay2(1);
+ 196   4                        SBUF=0X2c;Delay2(1);
+ 197   4                        SBUF=0X31;Delay2(1);
+ 198   4                        SBUF=0X30;Delay2(1);
+ 199   4                        SBUF=0X0D;Delay2(1);
+ 200   4                        SBUF=0X0A;Delay2(1);
+ 201   4                      
+ 202   4                        SBUF=0X52;Delay2(1);
+ 203   4                        SBUF=0X31;Delay2(1);
+ 204   4                        Tranfer_f(PM,8);
+ 205   4                        Delay2(5);
+ 206   4                }
+ 207   3        }     
+ 208   2      if(Is_F3)
+ 209   2        {
+ 210   3      
+ 211   3                send_flag=0;
+ 212   3                Tranfer("AT+CIPSEND=");
+ 213   3                SBUF=ID3;Delay2(1);
+ 214   3                SBUF=0X2c;Delay2(1);
+ 215   3                SBUF=0X31;Delay2(1);
+ 216   3                SBUF=0X30;Delay2(1);
+ 217   3                SBUF=0X0D;Delay2(1);
+ 218   3                SBUF=0X0A;Delay2(1);
+ 219   3              
+ 220   3                SBUF=0X52;Delay2(1);
+ 221   3                SBUF=0X33;Delay2(1);
+ 222   3                Tranfer_f(RX_Buffer5,8);
+ 223   3                Delay2(5);
+ 224   3                if(PM_F)
+ 225   3                {
+ 226   4                        Tranfer("AT+CIPSEND=");
+ 227   4                        SBUF=ID3; Delay2(1);
+ 228   4                        SBUF=0X2c;Delay2(1);
+ 229   4                        SBUF=0X31;Delay2(1);
+ 230   4                        SBUF=0X30;Delay2(1);
+ 231   4                        SBUF=0X0D;Delay2(1);
+ 232   4                        SBUF=0X0A;Delay2(1);          
+ 233   4                        SBUF=0X52;Delay2(1);
+ 234   4                        SBUF=0X31;Delay2(1);
+ 235   4                        Tranfer_f(PM,8);
+ 236   4                        Delay2(5);
+ 237   4                }
+ 238   3        }     
+ 239   2        if(Is_F4)//手机  要测试
+ 240   2        {
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 5   
+
+ 241   3                
+ 242   3                        Tranfer("AT+CIPSEND=");
+ 243   3                        SBUF=ID4; Delay2(1);
+ 244   3                        SBUF=0X2c;Delay2(1);
+ 245   3                        SBUF=0X31;Delay2(1);
+ 246   3                        SBUF=0X30;Delay2(1);
+ 247   3                        SBUF=0X0D;Delay2(1);
+ 248   3                        SBUF=0X0A;Delay2(1);
+ 249   3                        if(oldroom==1)
+ 250   3                        {
+ 251   4                          Tranfer("R400700001");
+ 252   4                           Delay2(5);
+ 253   4                        }
+ 254   3                        if(oldroom==2)
+ 255   3                        {
+ 256   4                              Tranfer("R401600001");
+ 257   4                           Delay2(5);
+ 258   4                        }
+ 259   3                       if(oldroom==3)
+ 260   3                        {
+ 261   4                              Tranfer("R400700000");
+ 262   4                           Delay2(5);
+ 263   4                        }
+ 264   3        }     
+ 265   2        
+ 266   2       }
+ 267   1       ES=1;
+ 268   1       TR0=1;
+ 269   1      }
+ 270          
+ 271          /******************系统初始化*********************/
+ 272          void SysInit()
+ 273          {
+ 274   1          lcdinit();    
+ 275   1          SCON=0X50;                  //设置为工作方式1
+ 276   1              TMOD=0X21;                      //设置计数器工作方式1   定时器0
+ 277   1              TH1=0XFD;                   //计数器初始值设置，注意波特率是9600
+ 278   1              TL1=0XFD;       
+ 279   1              TH0=0X3C;               //50ms中断一次
+ 280   1              TL0=0XB0;                                       
+ 281   1              TR1=1;                                      //打开计数器
+ 282   1          set_wifi(); 
+ 283   1              ES=1;                                           //打开接收中断
+ 284   1              EA=1;   
+ 285   1              ET0=1;
+ 286   1              TR0=1;  
+ 287   1      }
+ 288          
+ 289          /********************显示函数****************************/
+ 290          void Dis_play()
+ 291          {
+ 292   1       uchar j;
+ 293   1        if(display_flag)
+ 294   1              {
+ 295   2                      if(s_room==1)
+ 296   2                      {
+ 297   3                        write(0,0x80);
+ 298   3                        print("    操场      ");
+ 299   3                        write(0,0x90);
+ 300   3                        print("温度： ");
+ 301   3                        for(j=0;j<4;j++)
+ 302   3                        write(1,RX_Buffer5[j]);
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 6   
+
+ 303   3                        write(0,0x88);
+ 304   3                        print("湿度： ");       
+ 305   3                        for(j=4;j<8;j++)
+ 306   3                        write(1,RX_Buffer5[j]);        
+ 307   3                        write(0,0x98);
+ 308   3                        print("烟雾："); 
+ 309   3                        write(1,' ');
+ 310   3                        write(1,' ');
+ 311   3                        print("PM：");
+ 312   3                        for(j=3;j<8;j++)
+ 313   3                        write(1,RX_Buffer5[j]);
+ 314   3                      }
+ 315   2                      if(s_room==2)
+ 316   2                      { 
+ 317   3                        write(0,0x80);
+ 318   3                        print("    房间①    ");
+ 319   3                        write(0,0x90);
+ 320   3                        print("温度： ");
+ 321   3                        for(j=0;j<4;j++)
+ 322   3                        write(1,RX_Buffer1[j]);
+ 323   3                        write(0,0x88);          
+ 324   3                        print("湿度： ");
+ 325   3                        for(j=4;j<8;j++)
+ 326   3                        write(1,RX_Buffer1[j]);
+ 327   3                        write(0,0x98);
+ 328   3                        print("烟雾：");        
+ 329   3                       }
+ 330   2                       if(s_room==3)
+ 331   2                      { 
+ 332   3                        write(0,0x80);
+ 333   3                        print("    房间②    ");
+ 334   3                        write(0,0x90);
+ 335   3                        print("温度： ");
+ 336   3                        for(j=0;j<4;j++)
+ 337   3                        write(1,RX_Buffer2[j]);
+ 338   3                        write(0,0x88);          
+ 339   3                        print("湿度： ");
+ 340   3                        for(j=4;j<8;j++)
+ 341   3                        write(1,RX_Buffer2[j]);
+ 342   3                        write(0,0x98);
+ 343   3                        print("烟雾：");
+ 344   3                        write(1,YW2[5]);        
+ 345   3                       }  
+ 346   2                       if(s_room==4)
+ 347   2                      { 
+ 348   3                        write(0,0x80);
+ 349   3                        print("    房间③    ");
+ 350   3                        write(0,0x90);
+ 351   3                        print("温度： ");
+ 352   3                        for(j=0;j<4;j++)
+ 353   3                        write(1,RX_Buffer3[j]);
+ 354   3                        write(0,0x88);          
+ 355   3                        print("湿度： ");
+ 356   3                        for(j=4;j<8;j++)
+ 357   3                        write(1,RX_Buffer3[j]);
+ 358   3                        write(0,0x98);
+ 359   3                        print("烟雾：");
+ 360   3                        write(1,YW3[5]);        
+ 361   3                       }   
+ 362   2               }
+ 363   1      }
+ 364          void KeyBoard()
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 7   
+
+ 365          {
+ 366   1       if(k1==0)//跳到下一个房间
+ 367   1       {
+ 368   2         s_room++;
+ 369   2         if(s_room>4)s_room=2;
+ 370   2         while(!k1);
+ 371   2       }
+ 372   1      // if(k4==0)     //跳到操场
+ 373   1      // {
+ 374   1      //   s_room=1;
+ 375   1      //    while(!k4);
+ 376   1      // }
+ 377   1      }
+ 378          
+ 379          
+ 380          /************************定时器程序**************************************/
+ 381          
+ 382          void  time0() interrupt 1
+ 383          {
+ 384   1          TH0=0X3C;           //50ms中断一次
+ 385   1              TL0=0XB0;
+ 386   1               time++;
+ 387   1         if(time==100)  //1S刷新一次页面
+ 388   1               {
+ 389   2                 time=0;
+ 390   2                 oldroom++;
+ 391   2                 s_room++;
+ 392   2                 if(s_room>4)
+ 393   2                 {
+ 394   3                     
+ 395   3                     s_room=1;
+ 396   3                 }
+ 397   2                 if(oldroom>3)
+ 398   2                 {
+ 399   3                   oldroom=1;
+ 400   3                 }
+ 401   2               }
+ 402   1               Dis_play();      //50ms刷新一次
+ 403   1      }
+ 404          
+ 405          /*******************串口中断程序*******************************/
+ 406          void Usart() interrupt 4
+ 407          {
+ 408   1      uchar m=0,i=0;
+ 409   1      
+ 410   1      TR0=0;
+ 411   1      if(RI)
+ 412   1      {
+ 413   2           RI=0;       
+ 414   2           RX1_Buffer[RX1_Cnt] = SBUF;                //保存一个字节
+ 415   2                      if(RX1_Buffer[0]==0x2b)  /*接收0~10十个字节的数据       RX1_Cnt最大32    2b=+   */
+ 416   2                      {
+ 417   3                              RX1_Cnt++;
+ 418   3                      
+ 419   3                      }
+ 420   2                      else
+ 421   2                      {
+ 422   3                              RX1_Cnt=0;
+ 423   3              
+ 424   3                      }
+ 425   2        if(RX1_Cnt>=21)
+ 426   2                      {
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 8   
+
+ 427   3                        display_flag=1;
+ 428   3                         /*+IPD 这些值应该是APP上设置好的！！！！所以这边直接使用）*/
+ 429   3              if(RX1_Buffer[0]==0x2b&&RX1_Buffer[1]==0x49&&RX1_Buffer[2]==0x50&&RX1_Buffer[3]==0x44)
+ 430   3                      {
+ 431   4                               /* 是哪个从机发来的信息 */
+ 432   4                               
+ 433   4                              if(RX1_Buffer[11]==0x31)//房间1
+ 434   4                                                      { 
+ 435   5                      
+ 436   5                                                        for(m=12;m<20;m++)
+ 437   5                                                        {
+ 438   6                                                           RX_Buffer1[i]=RX1_Buffer[m];
+ 439   6                                                               i++;
+ 440   6                                                        }      
+ 441   5                                                           i=0;
+ 442   5                                                               ID1=RX1_Buffer[5];
+ 443   5                                                               Is_F1=1;       
+ 444   5                                                      }
+ 445   4                                              
+ 446   4                                                      
+ 447   4                              if(RX1_Buffer[11]==0x32)//房间2
+ 448   4                                                      {
+ 449   5                                                      if(RX1_Buffer[12]==0X59&&RX1_Buffer[13]==0X57&&RX1_Buffer[14]==0X43&&RX1_Buffer[15]==0X47)
+ 450   5                                                       {
+ 451   6                                                              for(m=12;m<20;m++)
+ 452   6                                                                {
+ 453   7                                                                   YW2[i]=RX1_Buffer[m];
+ 454   7                                                                       i++;   YW2_F=1;
+ 455   7                                                                }
+ 456   6                                                                i=0;
+ 457   6                                                       }
+ 458   5                                                       else
+ 459   5                                                       {
+ 460   6                                                                for(m=12;m<20;m++)
+ 461   6                                                                {
+ 462   7                                                                   RX_Buffer2[i]=RX1_Buffer[m];
+ 463   7                                                                       i++;
+ 464   7                                                                }
+ 465   6                                                       }      
+ 466   5                                                               ID2=RX1_Buffer[5];
+ 467   5                                                               Is_F2=1;
+ 468   5                                                      }
+ 469   4                                              
+ 470   4                                                      
+ 471   4                              if(RX1_Buffer[11]==0x33)//房间3
+ 472   4                                                      {
+ 473   5                                                       if(RX1_Buffer[12]==0X59&&RX1_Buffer[13]==0X57&&RX1_Buffer[14]==0X43&&RX1_Buffer[15]==0X47)
+ 474   5                                                       {
+ 475   6                                                              for(m=12;m<20;m++)
+ 476   6                                                                {
+ 477   7                                                                   YW3[i]=RX1_Buffer[m];
+ 478   7                                                                       i++;   YW3_F=1;
+ 479   7                                                                }
+ 480   6                                                                i=0;
+ 481   6                                                       }
+ 482   5                                                       else
+ 483   5                                                       {
+ 484   6                                                        for(m=12;m<20;m++)
+ 485   6                                                        {
+ 486   7                                                           RX_Buffer3[i]=RX1_Buffer[m];
+ 487   7                                                               i++;
+ 488   7                                                        }     
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 9   
+
+ 489   6                                                           i=0;
+ 490   6                                                        }
+ 491   5                                                               ID3=RX1_Buffer[5];     
+ 492   5                                                               Is_F3=1;
+ 493   5                                                      }
+ 494   4                              if(RX1_Buffer[11]==0x34)//      手机
+ 495   4                                                      {
+ 496   5      //                                                for(m=12;m<20;m++)
+ 497   5      //                                                {
+ 498   5      //                                                   RX_Buffer4[i]=RX1_Buffer[m];
+ 499   5      //                                                                 i++;
+ 500   5      //              
+ 501   5      //                                                }
+ 502   5      //                                                i=0;
+ 503   5                                                               ID4=RX1_Buffer[5];
+ 504   5                                                               Is_F4=1;        
+ 505   5                                                      }
+ 506   4                              if(RX1_Buffer[11]==0x35)//操场  外界温湿度
+ 507   4                                                      {
+ 508   5                                                        if(RX1_Buffer[12]==0X50&&RX1_Buffer[13]==0X4D&&RX1_Buffer[14]==0X41)//接收PMA校验码
+ 509   5                                                                {
+ 510   6                                                                       for(m=12;m<20;m++)
+ 511   6                                                                       {
+ 512   7                                                                         PM[i]= RX1_Buffer[m];
+ 513   7                                                                         i++;
+ 514   7                                                                       }
+ 515   6                                                                       i=0;
+ 516   6                                                                       PM_F=1;
+ 517   6                                                                }
+ 518   5                                                                else
+ 519   5                                                                {      
+ 520   6                                                                  for(m=12;m<20;m++)
+ 521   6                                                                      {
+ 522   7                                                                    RX_Buffer5[i]=RX1_Buffer[m];
+ 523   7                                                                        i++;
+ 524   7                                                                      }
+ 525   6                                                                      i=0;
+ 526   6                                                                }     
+ 527   5                                                               ID5=RX1_Buffer[5];
+ 528   5                                                               disf=1;
+ 529   5                                                               send_flag=1;                                           
+ 530   5                                                  } 
+ 531   4                                      RX1_Cnt=0;
+ 532   4              
+ 533   4               }
+ 534   3              else
+ 535   3              {
+ 536   4           RX1_Cnt=0;
+ 537   4      
+ 538   4              } 
+ 539   3       }
+ 540   2      
+ 541   2       }
+ 542   1        TR0=1;  
+ 543   1       }
+ 544          
+ 545          /***********************主程序*********************************/
+ 546          void main()
+ 547          {
+ 548   1          
+ 549   1              SysInit();
+ 550   1              
+C51 COMPILER V9.01   WIFI_MAIN                                                             08/28/2015 00:14:57 PAGE 10  
+
+ 551   1       while(1)
+ 552   1       {
+ 553   2           KeyBoard();
+ 554   2              Udp_send();
+ 555   2              if(display_flag==0)
+ 556   2              {
+ 557   3                    write(0,0x80);
+ 558   3                        print("没有接收数据");
+ 559   3                        Delay2(15);
+ 560   3              }
+ 561   2      
+ 562   2       if(YWZ||YWC||CO)
+ 563   2              {
+ 564   3                Bee=0;
+ 565   3              }
+ 566   2              else
+ 567   2              {
+ 568   3                Bee=1;
+ 569   3              }
+ 570   2              
+ 571   2       }
+ 572   1       
+ 573   1      }
+ 574          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2456    ----
+   CONSTANT SIZE    =    295    ----
+   XDATA SIZE       =     33      16
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =    192    ----
+   BIT SIZE         =     14    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

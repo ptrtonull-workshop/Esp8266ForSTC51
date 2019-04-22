@@ -1,0 +1,126 @@
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 11:38:02 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE WIFI_GRAMAMER
+OBJECT MODULE PLACED IN wifi_gramamer.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE wifi_gramamer.c BROWSE INCDIR(..\操场程序无PM) DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "STC12c5A.h"
+   2          #include<head_file.h>
+   3          #include"string.h"
+   4          #include <ctype.h>
+   5          
+   6          #define RX1_Lenth       32                      //串口接收缓冲长度
+   7          uchar   RX1_Cnt=0;                      //接收计数
+   8          bit flag=0,flag2=0;
+   9          extern uchar  U8T_data_H,U8T_data_L,U8RH_data_H,U8RH_data_L,U8checkdata;//传感器采集数据的保存地方都是八位
+             -数据
+  10          uchar code fasj[]={0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39};
+  11          void Delay2(unsigned long cnt)
+  12          {
+  13   1              long i;
+  14   1              for(i=0;i<cnt*100;i++);
+  15   1      }
+  16          void Tranfer(uchar *s)
+  17          {
+  18   1         while(*s!='\0')
+  19   1         {
+  20   2           SBUF= toascii(*s);
+  21   2               while(!TI);
+  22   2               TI=0;
+  23   2           s++;
+  24   2               Delay2(1);
+  25   2         }
+  26   1      }                                                
+  27          
+  28          uchar idata RX1_Buffer[RX1_Lenth]=0;    //接收缓冲
+  29          
+  30          
+  31          void UART_init()
+  32          {
+  33   1          SCON=0X50;                  //设置为工作方式1
+  34   1              TMOD=0X20;                      //设置计数器工作方式1
+  35   1              TH1=0XFD;                   //计数器初始值设置，注意波特率是9600
+  36   1              TL1=0XFD;       
+  37   1              TR1=1;                                              //打开计数器
+  38   1      }
+  39          
+  40          /* 配置wifi */
+  41          void set_wifi(void)
+  42          {
+  43   1          Delay2(1000);
+  44   1              Tranfer("AT+CWMODE=1\r\n");
+  45   1              Delay2(1000);   
+  46   1          Tranfer("AT+RST\r\n");      
+  47   1              Delay2(1000);
+  48   1              Tranfer("AT+CIPMUX=0\r\n");      //单链接
+  49   1              Delay2(1000);   
+  50   1          Tranfer("AT+CWJAP=\"ESP8266\",\"123456789\"\r\n");
+  51   1              Delay2(5000);
+  52   1              Tranfer("AT+CIPSTART=\"TCP\",\"192.168.4.1\",5000\r\n");
+  53   1              Delay2(2000);
+  54   1      //      Tranfer("AT+CIPMODE=1\r\n");   //透传模式
+C51 COMPILER V9.01   WIFI_GRAMAMER                                                         08/28/2015 11:38:02 PAGE 2   
+
+  55   1      //      Delay2(1000);
+  56   1      //      Tranfer("AT+CIPSEND\r\n");
+  57   1      //      Delay2(1000);
+  58   1      
+  59   1      }
+  60          uchar aaa=5;
+  61          void SendData()
+  62          {
+  63   1       uchar a,b,c,d,e,f;
+  64   1      //  if(U8checkdata)
+  65   1      //        {
+  66   1                 U8T_data_H%=100;
+  67   1                 a=U8T_data_H/10;
+  68   1                 b=U8T_data_H%10;
+  69   1                 c=U8T_data_L%10;
+  70   1                 U8RH_data_H%=100;
+  71   1                 d=U8RH_data_H/10;
+  72   1                 e=U8RH_data_H%10;
+  73   1                 f=U8RH_data_L%10;
+  74   1                 Tranfer("AT+CIPSEND=10\r\n");          
+  75   1                 Tranfer("R5");
+  76   1                 SBUF=fasj[a];Delay2(1);
+  77   1                 SBUF=fasj[b];Delay2(1);
+  78   1                 SBUF=0x2e; Delay2(1);
+  79   1                 SBUF=fasj[c];Delay2(1);
+  80   1                 SBUF=fasj[d];Delay2(1);
+  81   1                 SBUF=fasj[e];Delay2(1);
+  82   1                 SBUF=0x2e; Delay2(1);
+  83   1                 SBUF=fasj[f];Delay2(20);
+  84   1      //         U8checkdata=0;
+  85   1      //        }
+  86   1      }
+  87          void main()
+  88          {  
+  89   1              UART_init();
+  90   1              set_wifi();
+  91   1              while(1)
+  92   1              {
+  93   2                /*一直在采集信息，采集到信息 发送数据*/
+  94   2                 RH();
+  95   2                SendData();    
+  96   2              }
+  97   1      }
+  98          
+  99          
+ 100          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    397    ----
+   CONSTANT SIZE    =    138    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2      17
+   IDATA SIZE       =     32    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,5 @@
+"STARTUP.obj",
+"wifi-main.obj",
+"12864.obj" 
+TO "wifi-main" 
+RAMSIZE(256) 

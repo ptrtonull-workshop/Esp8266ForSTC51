@@ -1,0 +1,22 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+C:\Users\Administrator\Desktop\物联网\所有程序\新建文件夹\PM2.5\jiaquan.uvproj
+Project File Date:  08/26/2015
+
+<h2>Output:</h2>
+Build target 'Target 1'
+assembling STARTUP.A51...
+compiling main.c...
+MAIN.C(77): warning C280: 'i': unreferenced local variable
+MAIN.C(145): warning C280: 'i': unreferenced local variable
+MAIN.C(145): warning C280: 'j': unreferenced local variable
+MAIN.C(214): warning C206: 'Error_Correct': missing function-prototype
+MAIN.C(214): error C267: 'Error_Correct': requires ANSI-style prototype
+compiling 1602.c...
+1602.C(11): warning C235: parameter 1: different types
+1602.C(19): warning C235: parameter 1: different types
+compiling 2402.c...
+Target not created
